@@ -4,27 +4,8 @@ import h5py
 import numpy as np
 import os
 from pathlib import Path
-from urllib.request import urlretrieve
 import time
-
-def download(src, dst):
-    if not os.path.exists(dst):
-        os.makedirs(Path(dst).parent, exist_ok=True)
-        print('downloading %s -> %s...' % (src, dst))
-        urlretrieve(src, dst)
-
-def get_fn(kind):
-    version = "ccnews-small"
-    return os.path.join("data", kind, f"{version}.h5")
-
-def prepare(kind):
-    if kind == 'task2':
-        url = "https://huggingface.co/datasets/sadit/SISAP2025/resolve/main/allknn-benchmark-dev-ccnews.h5?download=true"
-    if kind == 'task1':
-        url = "https://huggingface.co/datasets/sadit/SISAP2025/resolve/main/benchmark-dev-ccnews-fp16.h5?download=true"
-    fn = get_fn(kind)
-
-    download(url, fn)
+from datasets import DATASETS, prepare, get_fn
 
 def store_results(dst, algo, kind, D, I, buildtime, querytime, params):
     os.makedirs(Path(dst).parent, exist_ok=True)
@@ -43,17 +24,21 @@ def run(kind, params):
 
     prepare(kind)
 
-    fn = get_fn(kind)
+    fn, _ = get_fn(kind)
     f = h5py.File(fn)
-    data = np.array(f['train'])
-    queries = np.array(f['itest']['queries'])
+    data = np.array(DATASETS['ccnews-small'][kind]['data'](f))
+    queries = np.array(DATASETS['ccnews-small'][kind]['queries'](f))
     f.close()
 
     n, d = data.shape
     k = params['k']
 
     nlist = 1024 # number of clusters/centroids to build the IVF from
-    index_identifier = f"IVF{nlist},SQfp16"
+    if kind == 'task1':
+        index_identifier = f"IVF{nlist},SQfp16"
+    elif kind == 'task2':
+        index_identifier = f"IVF{nlist},PQ{d//2}x4fs"
+
     index = faiss.index_factory(d, index_identifier)
 
     print(f"Training index on {data.shape}")
@@ -63,6 +48,10 @@ def run(kind, params):
     elapsed_build = time.time() - start
     print(f"Done training in {elapsed_build}s.")
     assert index.is_trained
+
+    if kind == "task2":
+        index = faiss.IndexRefineFlat(index, faiss.swig_ptr(data.astype('float32')))
+        index.k_factor = 200
 
     for nprobe in [1, 2, 5, 10, 20, 50, 100]:
         print(f"Starting search on {queries.shape} with nprobe={nprobe}")
@@ -87,6 +76,13 @@ if __name__ == "__main__":
         default='task2'
     )
 
+    parser.add_argument(
+        '--dataset',
+        choices=[
+            'ccnews-small',
+        ],
+        default='ccnews-small'
+    )
 
     params = {
         'task1': {
