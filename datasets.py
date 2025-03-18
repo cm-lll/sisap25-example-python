@@ -1,3 +1,4 @@
+import h5py
 import os 
 from urllib.request import urlretrieve
 from pathlib import Path
@@ -18,6 +19,13 @@ def prepare(dataset, task):
 
     download(url, fn)
     download(gt_url, gt_fn)
+
+def get_query_count(dataset, task):
+    fn, _ = get_fn(dataset, task) 
+    f = h5py.File(fn)
+    qn = len(DATASETS[dataset][task]['queries'](f))
+    f.close()
+    return qn
 
 DATASETS = {
     'ccnews-small': {
