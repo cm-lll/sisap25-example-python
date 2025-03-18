@@ -48,7 +48,7 @@ def run(dataset, task, k):
     print(f"Done training in {elapsed_build}s.")
     assert index.is_trained
 
-    for nprobe in [1, 2, 5, 10, 20, 50, 100]:
+    for nprobe in [1, 2, 5, 10]:
         print(f"Starting search on {queries.shape} with nprobe={nprobe}")
         start = time.time()
         index.nprobe = nprobe
