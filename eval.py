@@ -5,24 +5,17 @@ import os
 import csv
 import glob
 from pathlib import Path
-from datasets import DATASETS
-
-def get_groundtruth(size="100K", private=False):
-    # test
-    gt_f = h5py.File(out_fn, "r")
-    true_I = np.array(gt_f['knns'])
-    gt_f.close()
-    return true_I
+from datasets import DATASETS, get_fn, prepare
 
 def get_all_results(dirname):
-    mask = [dirname + "/**/*.h5"]
-    print("search for results matching:")
+    mask = [dirname + "/**/*.h5", dirname + "/**/*/*.h5"]
+    print("Searching for results matching:")
     print("\n".join(mask))
     for m in mask:
         for fn in glob.iglob(m):
             print(fn)
             f = h5py.File(fn, "r")
-            if "knns" not in f or not ("data" in f or "data" in f.attrs):
+            if "knns" not in f or not ("dataset" in f or "dataset" in f.attrs):
                 print("Ignoring " + fn)
                 f.close()
                 continue
@@ -45,7 +38,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--results",
         help='directory in which results are stored',
-        default="result"
+        default="results"
     )
     parser.add_argument(
         '--private',
@@ -53,28 +46,30 @@ if __name__ == "__main__":
         action='store_true',
         default=False
     )
-    parser.add_argument(
-        '--dataset',
-        choices = ['ccnews-small'],
-        default='ccnews-small',
-    )
 
     parser.add_argument("csvfile")
     args = parser.parse_args()
     true_I_cache = {}
 
 
-    columns = ["data", "kind", "algo", "buildtime", "querytime", "params", "recall"]
+    columns = ["dataset", "task", "algo", "buildtime", "querytime", "params", "recall"]
 
     with open(args.csvfile, 'w', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=columns)
         writer.writeheader()
         for res in get_all_results(args.results):
-            data = res.attrs["data"]
+            dataset = res.attrs["dataset"]
+            task = res.attrs["task"]
+            assert dataset in DATASETS and task in DATASETS[dataset]
+            prepare(dataset, task)
             d = dict(res.attrs)
-            print(d)
-            gt_I = np.array(DATASETS['ccnews-small'][data]['gt_I'](res))
-            recall = get_recall(np.array(res["knns"]), gt_I, 10)
+            # print(d)
+            _, gt_f = get_fn(dataset, task)
+            print(f"Using groundtruth in {gt_f}")
+            f = h5py.File(gt_f)
+            gt_I = np.array(DATASETS[dataset][task]['gt_I'](f))
+            f.close()
+            recall = get_recall(np.array(res["knns"]), gt_I, DATASETS[dataset][task]['k'])
             d['recall'] = recall
-            print(d["data"], d["algo"], d["params"], "=>", recall)
+            print(d["dataset"], d["task"], d["algo"], d["params"], "=>", recall)
             writer.writerow(d)

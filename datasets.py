@@ -8,14 +8,13 @@ def download(src, dst):
         print('downloading %s -> %s...' % (src, dst))
         urlretrieve(src, dst)
 
-def get_fn(kind):
-    version = "ccnews-small"
-    return os.path.join("data", kind, f"{version}.h5"), os.path.join('data', kind, 'gt', f'{version}.h5')
+def get_fn(dataset, task):
+    return os.path.join("data", dataset, task, f"{dataset}.h5"), os.path.join('data', dataset, task, 'gt', f'gt_{dataset}.h5')
 
-def prepare(kind):
-    url = DATASETS['ccnews-small'][kind]['url']
-    gt_url = DATASETS['ccnews-small'][kind]['gt_url']
-    fn, gt_fn = get_fn(kind)
+def prepare(dataset, task):
+    url = DATASETS[dataset][task]['url']
+    gt_url = DATASETS[dataset][task]['gt_url']
+    fn, gt_fn = get_fn(dataset, task)
 
     download(url, fn)
     download(gt_url, gt_fn)
@@ -28,13 +27,15 @@ DATASETS = {
             'data': lambda x: x['train'],
             'gt_url': 'https://huggingface.co/datasets/sadit/SISAP2025/resolve/main/benchmark-dev-ccnews-fp16.h5?download=true',
             'gt_I': lambda x: x['itest']['knns'],
+            'k': 30,
         },
         'task2': {
             'url': 'https://huggingface.co/datasets/sadit/SISAP2025/resolve/main/benchmark-dev-ccnews-fp16.h5?download=true',
             'queries': lambda x: x['train'],
             'data': lambda x: x['train'],
             'gt_url': 'https://huggingface.co/datasets/sadit/SISAP2025/resolve/main/allknn-benchmark-dev-ccnews.h5?download=true',
-            'gt_I': lambda x: x['knns']
+            'gt_I': lambda x: x['knns'],
+            'k': 15,
         }
     }
 }
