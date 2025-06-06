@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
 
     columns = ["dataset", "task", "algo", "buildtime", "querytime", "params", "recall"]
-
+    print("Begin to write results to", args.csvfile)
     with open(args.csvfile, 'w', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=columns)
         writer.writeheader()
